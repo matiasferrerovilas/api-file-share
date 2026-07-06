@@ -34,26 +34,45 @@ checkstyleMain {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-liquibase'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
-	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-client'
-	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
+	// Spring Boot Starters
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-	compileOnly 'org.projectlombok:lombok'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-aspectj'
+	implementation 'org.springframework.boot:spring-boot-starter-cache'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-authorization-server'
+	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-client'
+	implementation 'org.springframework.boot:spring-boot-starter-amqp'
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+
+	//Dev
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
+
+	// OpenAPI/Swagger
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
+
+	//Logs
+	implementation 'org.apache.commons:commons-text:1.14.0'
+
+	// Cache
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-redis-test'
+
+	// Database
 	runtimeOnly 'org.postgresql:postgresql'
+
+	// Liquibase
+	implementation 'org.springframework.boot:spring-boot-starter-liquibase'
+
+
+	// Lombok + MapStruct (orden importante)
+	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
-	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-liquibase-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-security-oauth2-client-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
-	testCompileOnly 'org.projectlombok:lombok'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	testAnnotationProcessor 'org.projectlombok:lombok'
+	implementation "org.mapstruct:mapstruct:1.6.3"
+	annotationProcessor "org.mapstruct:mapstruct-processor:1.6.3"
+	testAnnotationProcessor "org.mapstruct:mapstruct-processor:1.6.3"
 }
 
 hibernate {
