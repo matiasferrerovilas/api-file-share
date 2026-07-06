@@ -1,6 +1,6 @@
 package com.api.file.share.security;
 
-import api.m2.movements.configuration.properties.JwtProperties;
+import com.api.file.share.configuration.properties.JwtProperties;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

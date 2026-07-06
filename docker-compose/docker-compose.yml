@@ -8,11 +8,11 @@ services:
     environment:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: helios
-      POSTGRES_DB: expenses
+      POSTGRES_DB: files
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     networks:
       - api-file-share
 

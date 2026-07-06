@@ -10,12 +10,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/files")
+@RequestMapping("/v1/folders")
 public class FileController {
 
     private final FileService fileService;
 
-    @GetMapping
+    @GetMapping("/tree")
     public ResponseEntity<FileNode> listFiles() {
         return ResponseEntity.ok(fileService.getPersonalFolder());
     }
