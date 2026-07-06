@@ -33,6 +33,13 @@ checkstyleMain {
 	source = 'src/main/java'
 }
 
+// El plugin AOT de Spring Boot registra los source sets 'aot' y 'aotTest' con código
+// generado (build/generated/aotSources), que el plugin checkstyle detecta y linta
+// automáticamente aunque no sea código nuestro. Se deshabilitan esas tasks.
+tasks.matching { it.name in ['checkstyleAot', 'checkstyleAotTest'] }.configureEach {
+	enabled = false
+}
+
 dependencies {
 	// Spring Boot Starters
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
