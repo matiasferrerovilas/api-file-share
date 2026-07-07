@@ -8,6 +8,7 @@ import com.api.file.share.exceptions.BusinessException;
 import com.api.file.share.exceptions.EntityNotFoundException;
 import com.api.file.share.exceptions.PermissionDeniedException;
 import com.api.file.share.exceptions.ServiceException;
+import com.api.file.share.mappers.FileNodeMapper;
 import com.api.file.share.record.DownloadableFile;
 import com.api.file.share.record.FileNode;
 import com.api.file.share.repository.FileRepository;
@@ -37,6 +38,8 @@ public class FileService {
     private final FileRepository fileRepository;
     private final UserRepository userRepository;
     private final StorageProperties storageProperties;
+    private final FileNodeMapper fileNodeMapper;
+
     private static final String ROOT_PATH = "Home";
 
     public FileNode getPersonalFolder(String ownerEmail) {
@@ -51,7 +54,7 @@ public class FileService {
         List<FileNode> rootChildren = files.stream()
                 .filter(file -> file.getParentId() == null)
                 .sorted(Comparator.comparing(FileEntity::getName))
-                .map(file -> toFileNode(file, childrenByParentId))
+                .map(file -> fileNodeMapper.toFileNode(file, childrenByParentId))
                 .toList();
 
         return FileNode.builder()
@@ -63,26 +66,6 @@ public class FileService {
                 .build();
     }
 
-    private FileNode toFileNode(FileEntity file, Map<UUID, List<FileEntity>> childrenByParentId) {
-        FileNode.FileNodeBuilder builder = FileNode.builder()
-                .id(file.getId().toString())
-                .name(file.getName())
-                .type(file.getType())
-                .size(file.getSize())
-                .lastModified(file.getUpdatedAt());
-
-        if (file.getType() == FileType.FOLDER) {
-            List<FileNode> children = childrenByParentId
-                    .getOrDefault(file.getId(), List.of())
-                    .stream()
-                    .sorted(Comparator.comparing(FileEntity::getName))
-                    .map(child -> toFileNode(child, childrenByParentId))
-                    .toList();
-            builder.children(children);
-        }
-
-        return builder.build();
-    }
 
     public DownloadableFile downloadFile(UUID id) {
         FileEntity file = fileRepository.findById(id)
