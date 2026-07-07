@@ -22,7 +22,7 @@ CREATE TABLE files (
     name         VARCHAR(255) NOT NULL,
     type         VARCHAR(20) NOT NULL,
     size         BIGINT,
-    storage_key  VARCHAR(512),
+    ubicacion    VARCHAR(1024),
     created_at   TIMESTAMP NOT NULL DEFAULT now(),
     updated_at   TIMESTAMP NOT NULL DEFAULT now(),
     CONSTRAINT fk_files_owner FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE CASCADE,

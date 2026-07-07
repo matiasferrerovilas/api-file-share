@@ -4,6 +4,10 @@ server:
   http2:
     enabled: true
 
+app:
+  storage:
+    base-path: ${STORAGE_BASE_PATH:/mnt/storage}
+
 jwt:
   auth:
     converter:
@@ -30,6 +34,10 @@ spring:
           time_zone: UTC
   jackson:
     time-zone: UTC
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 500MB
   security:
     oauth2:
       resourceserver:
