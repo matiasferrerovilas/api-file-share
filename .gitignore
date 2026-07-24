@@ -46,3 +46,7 @@ gradle.properties
 ### OS ###
 .DS_Store
 Thumbs.db
+
+### Uploaded files ###
+src/main/resources/files/**
+!src/main/resources/files/.gitkeep
