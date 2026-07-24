@@ -9,7 +9,7 @@ plugins {
 }
 
 group = 'com.api.file.share'
-version = '1.0.0'
+version = '1.0.1'
 
 java {
 	toolchain {
@@ -53,9 +53,6 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-amqp'
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
-	//Dev
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
-	developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
 
 	// OpenAPI/Swagger
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'

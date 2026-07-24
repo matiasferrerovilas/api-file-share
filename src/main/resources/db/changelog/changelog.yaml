@@ -2,3 +2,9 @@ databaseChangeLog:
   - include:
       file: 001__create_initial.sql
       relativeToChangelogFile: true
+  - include:
+      file: 002__drop_users_update_files.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 003__change_files_id_to_bigint.sql
+      relativeToChangelogFile: true
