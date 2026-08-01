@@ -1,11 +1,14 @@
 package api.m2.file.controller;
 
+import api.m2.file.record.CreateFolderRequest;
 import api.m2.file.record.DownloadableFile;
 import api.m2.file.record.FileNode;
+import api.m2.file.record.RenameNodeRequest;
 import api.m2.file.service.FileService;
 import java.util.UUID;
 
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
@@ -14,9 +17,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -57,5 +63,22 @@ public class FileController {
             @RequestParam Long workspaceId,
             @RequestParam(value = "parentId", required = false) Long parentId) {
         return fileService.uploadFile(workspaceId, parentId, file);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public FileNode createFolder(@Valid @RequestBody CreateFolderRequest request) {
+        return fileService.createFolder(request.workspaceId(), request.parentId(), request.name());
+    }
+
+    @PatchMapping("/{id}")
+    public FileNode renameNode(@PathVariable Long id, @Valid @RequestBody RenameNodeRequest request) {
+        return fileService.renameNode(id, request.name());
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteNode(@PathVariable Long id) {
+        fileService.deleteNode(id);
     }
 }

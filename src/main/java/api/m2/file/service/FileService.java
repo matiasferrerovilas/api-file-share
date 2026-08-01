@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -25,7 +26,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -84,12 +88,7 @@ public class FileService {
             throw new BusinessException("No se puede descargar una carpeta");
         }
 
-        Path basePath = Path.of(storageProperties.basePath()).normalize().toAbsolutePath();
-        Path location = Path.of(file.getLocation()).normalize().toAbsolutePath();
-
-        if (!location.startsWith(basePath)) {
-            throw new ServiceException("La ubicación del archivo está fuera del directorio permitido");
-        }
+        Path location = validateWithinBasePath(Path.of(file.getLocation()));
 
         if (!Files.isRegularFile(location)) {
             throw new EntityNotFoundException("El archivo no existe en el disco: " + location);
@@ -128,12 +127,7 @@ public class FileService {
         Path targetDirectory = Path.of(parent.getLocation());
 
         String filename = Path.of(Objects.requireNonNull(file.getOriginalFilename())).getFileName().toString();
-        Path basePath = Path.of(storageProperties.basePath()).normalize().toAbsolutePath();
-        Path target = targetDirectory.resolve(filename).normalize().toAbsolutePath();
-
-        if (!target.startsWith(basePath)) {
-            throw new ServiceException("La ubicación de destino está fuera del directorio permitido");
-        }
+        Path target = validateWithinBasePath(targetDirectory.resolve(filename));
 
         if (Files.exists(target)) {
             throw new BusinessException("Ya existe un archivo con el nombre '" + filename + "' en ese destino");
@@ -162,13 +156,163 @@ public class FileService {
                 .build();
         fileRepository.save(entity);
 
+        return toResponseNode(entity);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public FileNode createFolder(Long workspaceId, Long parentId, String name) {
+        var owner = userService.getMe();
+        workspaceService.verifyUserIsMemberOfWorkspace(workspaceId, owner.id());
+
+        FileEntity parent = resolveParent(workspaceId, parentId, owner);
+        String folderName = Path.of(name).getFileName().toString();
+        Path target = validateWithinBasePath(Path.of(parent.getLocation()).resolve(folderName));
+
+        if (Files.exists(target)) {
+            throw new BusinessException("Ya existe un archivo con el nombre '" + folderName + "' en ese destino");
+        }
+
+        try {
+            Files.createDirectories(target);
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo crear la carpeta: " + target, e);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        FileEntity entity = FileEntity.builder()
+                .parentId(parent.getId())
+                .ownerId(owner.id())
+                .workspaceId(workspaceId)
+                .name(folderName)
+                .type(FileType.FOLDER)
+                .location(target.toString())
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        fileRepository.save(entity);
+
+        return toResponseNode(entity);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public FileNode renameNode(Long id, String name) {
+        FileEntity entity = fileRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("No se encontró el archivo con id " + id));
+
+        workspaceService.verifyUserIsMemberOfWorkspace(entity.getWorkspaceId(), userService.getMe().id());
+
+        if (entity.getParentId() == null) {
+            throw new BusinessException("No se puede renombrar la carpeta raíz");
+        }
+
+        String newName = Path.of(name).getFileName().toString();
+        Path oldLocation = Path.of(entity.getLocation());
+        Path newLocation = validateWithinBasePath(oldLocation.resolveSibling(newName));
+
+        if (Files.exists(newLocation)) {
+            throw new BusinessException("Ya existe un archivo con el nombre '" + newName + "' en ese destino");
+        }
+
+        try {
+            Files.move(oldLocation, newLocation);
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo renombrar: " + oldLocation, e);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        entity.setName(newName);
+        entity.setLocation(newLocation.toString());
+        entity.setUpdatedAt(now);
+
+        if (entity.getType() == FileType.FOLDER) {
+            relocateDescendants(entity, oldLocation, newLocation, now);
+        }
+
+        fileRepository.save(entity);
+
+        return toResponseNode(entity);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteNode(Long id) {
+        FileEntity entity = fileRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("No se encontró el archivo con id " + id));
+
+        workspaceService.verifyUserIsMemberOfWorkspace(entity.getWorkspaceId(), userService.getMe().id());
+
+        if (entity.getParentId() == null) {
+            throw new BusinessException("No se puede eliminar la carpeta raíz");
+        }
+
+        Path location = validateWithinBasePath(Path.of(entity.getLocation()));
+
+        try {
+            if (entity.getType() == FileType.FOLDER) {
+                deleteRecursively(location);
+            } else {
+                Files.deleteIfExists(location);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo eliminar: " + location, e);
+        }
+
+        fileRepository.delete(entity);
+    }
+
+    private void deleteRecursively(Path location) throws IOException {
+        if (!Files.exists(location)) {
+            return;
+        }
+        try (var stream = Files.walk(location)) {
+            for (Path path : stream.sorted(Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
+            }
+        }
+    }
+
+    private void relocateDescendants(FileEntity folder, Path oldLocation, Path newLocation, LocalDateTime now) {
+        List<FileEntity> files = fileRepository.findByWorkspaceId(folder.getWorkspaceId());
+        Map<Long, List<FileEntity>> childrenByParentId = files.stream()
+                .filter(f -> f.getParentId() != null)
+                .collect(Collectors.groupingBy(FileEntity::getParentId));
+
+        List<FileEntity> descendants = new ArrayList<>();
+        collectDescendants(folder.getId(), childrenByParentId, descendants);
+
+        for (FileEntity descendant : descendants) {
+            Path relative = oldLocation.relativize(Path.of(descendant.getLocation()));
+            descendant.setLocation(newLocation.resolve(relative).toString());
+            descendant.setUpdatedAt(now);
+        }
+        fileRepository.saveAll(descendants);
+    }
+
+    private void collectDescendants(Long parentId, Map<Long, List<FileEntity>> childrenByParentId, List<FileEntity> acc) {
+        for (FileEntity child : childrenByParentId.getOrDefault(parentId, List.of())) {
+            acc.add(child);
+            collectDescendants(child.getId(), childrenByParentId, acc);
+        }
+    }
+
+    private FileNode toResponseNode(FileEntity entity) {
         return FileNode.builder()
                 .id(entity.getId().toString())
                 .name(entity.getName())
                 .type(entity.getType())
                 .size(entity.getSize())
-                .lastModified(now)
+                .lastModified(entity.getUpdatedAt())
                 .build();
+    }
+
+    private Path validateWithinBasePath(Path path) {
+        Path basePath = Path.of(storageProperties.basePath()).normalize().toAbsolutePath();
+        Path normalized = path.normalize().toAbsolutePath();
+
+        if (!normalized.startsWith(basePath)) {
+            throw new ServiceException("La ubicación está fuera del directorio permitido");
+        }
+
+        return normalized;
     }
 
     private FileEntity resolveParent(Long workspaceId, Long parentId, UserMe owner) {
