@@ -4,4 +4,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-public record OnBoardingForm(List<MultipartFile> filesToAdd) {}
+public record OnBoardingForm(
+        List<MultipartFile> filesToAdd,
+        Long existingDefaultWorkspaceId,
+        List<String> workspacesToAdd) {}
