@@ -21,7 +21,7 @@ spring:
   application:
     name: api-file-share
   datasource:
-    driver-class-name: org.postgresql.Driver
+    driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     show-sql: false
     hibernate:

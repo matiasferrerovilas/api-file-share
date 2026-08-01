@@ -32,8 +32,8 @@ public class FileController {
 
     @GetMapping("/tree")
     @ApiResponse(responseCode = "200", description = "Listado retornado correctamente")
-    public FileNode listFiles() {
-        return fileService.getPersonalFolder();
+    public FileNode listFiles(@RequestParam Long workspaceId) {
+        return fileService.getPersonalFolder(workspaceId);
     }
 
     @GetMapping("/{id}/download")
@@ -54,7 +54,8 @@ public class FileController {
     @ResponseStatus(HttpStatus.CREATED)
     public FileNode uploadFile(
             @RequestParam("file") MultipartFile file,
+            @RequestParam Long workspaceId,
             @RequestParam(value = "parentId", required = false) Long parentId) {
-        return fileService.uploadFile(parentId, file);
+        return fileService.uploadFile(workspaceId, parentId, file);
     }
 }

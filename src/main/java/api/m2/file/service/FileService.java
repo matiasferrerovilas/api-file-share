@@ -12,6 +12,7 @@ import api.m2.file.mappers.FileNodeMapper;
 import api.m2.file.record.DownloadableFile;
 import api.m2.file.record.FileNode;
 import api.m2.file.repository.FileRepository;
+import api.m2.file.service.workspace.WorkspaceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -32,18 +33,21 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class FileService {
 
+    private static final String ROOT_PATH = "Home";
+
     private final FileRepository fileRepository;
     private final StorageProperties storageProperties;
     private final FileNodeMapper fileNodeMapper;
     private final UserService userService;
+    private final WorkspaceService workspaceService;
 
-    public FileNode getPersonalFolder() {
+    public FileNode getPersonalFolder(Long workspaceId) {
         var owner = userService.getMe();
+        workspaceService.verifyUserIsMemberOfWorkspace(workspaceId, owner.id());
 
-        FileEntity root = fileRepository.findByOwnerIdAndParentIdIsNull(owner.id())
-                .orElseThrow(() -> new EntityNotFoundException("No se encontró la carpeta raíz del usuario"));
+        FileEntity root = getOrCreateRoot(workspaceId, owner);
 
-        List<FileEntity> files = fileRepository.findByOwnerId(owner.id());
+        List<FileEntity> files = fileRepository.findByWorkspaceId(workspaceId);
 
         var childrenByParentId = files.stream()
                 .filter(file -> file.getParentId() != null)
@@ -52,10 +56,29 @@ public class FileService {
         return fileNodeMapper.toFileNode(root, childrenByParentId);
     }
 
+    private FileEntity getOrCreateRoot(Long workspaceId, UserMe owner) {
+        return fileRepository.findByWorkspaceIdAndParentIdIsNull(workspaceId)
+                .orElseGet(() -> {
+                    LocalDateTime now = LocalDateTime.now();
+                    FileEntity root = FileEntity.builder()
+                            .ownerId(owner.id())
+                            .workspaceId(workspaceId)
+                            .name(ROOT_PATH)
+                            .type(FileType.FOLDER)
+                            .location("%s/%s".formatted(storageProperties.basePath(), workspaceId))
+                            .createdAt(now)
+                            .updatedAt(now)
+                            .build();
+                    return fileRepository.save(root);
+                });
+    }
+
 
     public DownloadableFile downloadFile(Long id) {
         FileEntity file = fileRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("No se encontró el archivo con id " + id));
+
+        workspaceService.verifyUserIsMemberOfWorkspace(file.getWorkspaceId(), userService.getMe().id());
 
         if (file.getType() != FileType.FILE) {
             throw new BusinessException("No se puede descargar una carpeta");
@@ -97,10 +120,11 @@ public class FileService {
         }
     }
 
-    public FileNode uploadFile(Long parentId, MultipartFile file) {
+    public FileNode uploadFile(Long workspaceId, Long parentId, MultipartFile file) {
         var owner = userService.getMe();
+        workspaceService.verifyUserIsMemberOfWorkspace(workspaceId, owner.id());
 
-        FileEntity parent = resolveParent(parentId, owner);
+        FileEntity parent = resolveParent(workspaceId, parentId, owner);
         Path targetDirectory = Path.of(parent.getLocation());
 
         String filename = Path.of(Objects.requireNonNull(file.getOriginalFilename())).getFileName().toString();
@@ -128,7 +152,7 @@ public class FileService {
         FileEntity entity = FileEntity.builder()
                 .parentId(parent.getId())
                 .ownerId(owner.id())
-                .workspaceId(12L)
+                .workspaceId(workspaceId)
                 .name(filename)
                 .type(FileType.FILE)
                 .size(file.getSize())
@@ -147,10 +171,9 @@ public class FileService {
                 .build();
     }
 
-    private FileEntity resolveParent(Long parentId, UserMe owner) {
+    private FileEntity resolveParent(Long workspaceId, Long parentId, UserMe owner) {
         if (parentId == null) {
-            return fileRepository.findByOwnerIdAndParentIdIsNull(owner.id())
-                    .orElseThrow(() -> new EntityNotFoundException("No se encontró la carpeta raíz del usuario"));
+            return getOrCreateRoot(workspaceId, owner);
         }
 
         FileEntity parent = fileRepository.findById(parentId)
@@ -160,7 +183,7 @@ public class FileService {
             throw new BusinessException("El destino no es una carpeta");
         }
 
-        if (!parent.getOwnerId().equals(owner.id())) {
+        if (!parent.getWorkspaceId().equals(workspaceId)) {
             throw new PermissionDeniedException("No tiene permisos sobre esta carpeta");
         }
 

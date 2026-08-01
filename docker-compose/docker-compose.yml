@@ -2,17 +2,16 @@ name: api-file-share
 
 services:
 
-  postgres:
-    image: postgres:latest
-    container_name: api-file-share-postgres
+  mysql:
+    image: mysql:latest
+    container_name: api-file-share-mysql
     environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: helios
-      POSTGRES_DB: files
+      MYSQL_ROOT_PASSWORD: helios
+      MYSQL_DATABASE: files
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql
+      - mysql_data:/var/lib/mysql
     networks:
       - api-file-share
 
@@ -41,4 +40,4 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
+  mysql_data:

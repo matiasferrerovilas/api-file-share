@@ -1,7 +1,10 @@
 package api.m2.file.clients.identity;
 
+import api.m2.file.clients.identity.requests.AddWorkspaceRecord;
 import api.m2.file.clients.identity.requests.UserToAdd;
 import api.m2.file.clients.identity.response.UserMe;
+import api.m2.file.clients.identity.response.WorkspaceAdded;
+import api.m2.file.clients.identity.response.WorkspaceMemberDTO;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.service.annotation.DeleteExchange;
@@ -10,6 +13,8 @@ import org.springframework.web.service.annotation.HttpExchange;
 import org.springframework.web.service.annotation.PatchExchange;
 import org.springframework.web.service.annotation.PostExchange;
 import org.springframework.web.service.annotation.PutExchange;
+
+import java.util.List;
 
 @HttpExchange
 public interface IdentityClient {
@@ -23,6 +28,11 @@ public interface IdentityClient {
     @GetExchange("/v1/users/me")
     UserMe getMe();
 
+    @PostExchange("/v1/workspaces")
+    List<WorkspaceAdded> createWorkspaces(@RequestBody List<AddWorkspaceRecord> workspaces);
+
+    @GetExchange("/v1/workspaces/members")
+    List<WorkspaceMemberDTO> getWorkspaces();
 
     @GetExchange("/v1/workspaces/{workspaceId}/members/{userId}")
     void verifyMembership(@PathVariable Long workspaceId, @PathVariable Long userId);
