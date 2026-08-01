@@ -270,11 +270,70 @@ public class FileService {
         }
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public FileNode moveNode(Long id, Long newParentId) {
+        var owner = userService.getMe();
+        FileEntity entity = fileRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("No se encontró el archivo con id " + id));
+
+        workspaceService.verifyUserIsMemberOfWorkspace(entity.getWorkspaceId(), owner.id());
+
+        if (entity.getParentId() == null) {
+            throw new BusinessException("No se puede mover la carpeta raíz");
+        }
+
+        if (Objects.equals(entity.getParentId(), newParentId)) {
+            return toResponseNode(entity);
+        }
+
+        Map<Long, List<FileEntity>> childrenByParentId = childrenByParentId(entity.getWorkspaceId());
+
+        FileEntity newParent = resolveParent(entity.getWorkspaceId(), newParentId, owner);
+
+        if (newParent.getId().equals(entity.getId())
+                || isDescendant(entity.getId(), newParent.getId(), childrenByParentId)) {
+            throw new BusinessException("No se puede mover una carpeta dentro de sí misma o de una subcarpeta suya");
+        }
+
+        Path oldLocation = Path.of(entity.getLocation());
+        Path newLocation = validateWithinBasePath(Path.of(newParent.getLocation()).resolve(entity.getName()));
+
+        if (Files.exists(newLocation)) {
+            throw new BusinessException(
+                    "Ya existe un archivo con el nombre '" + entity.getName() + "' en ese destino");
+        }
+
+        try {
+            Files.move(oldLocation, newLocation);
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo mover: " + oldLocation, e);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        entity.setParentId(newParent.getId());
+        entity.setLocation(newLocation.toString());
+        entity.setUpdatedAt(now);
+
+        if (entity.getType() == FileType.FOLDER) {
+            relocateDescendants(entity, oldLocation, newLocation, now);
+        }
+
+        fileRepository.save(entity);
+
+        return toResponseNode(entity);
+    }
+
+    private boolean isDescendant(Long ancestorId, Long candidateId, Map<Long, List<FileEntity>> childrenByParentId) {
+        for (FileEntity child : childrenByParentId.getOrDefault(ancestorId, List.of())) {
+            if (child.getId().equals(candidateId) || isDescendant(child.getId(), candidateId, childrenByParentId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void relocateDescendants(FileEntity folder, Path oldLocation, Path newLocation, LocalDateTime now) {
-        List<FileEntity> files = fileRepository.findByWorkspaceId(folder.getWorkspaceId());
-        Map<Long, List<FileEntity>> childrenByParentId = files.stream()
-                .filter(f -> f.getParentId() != null)
-                .collect(Collectors.groupingBy(FileEntity::getParentId));
+        Map<Long, List<FileEntity>> childrenByParentId = childrenByParentId(folder.getWorkspaceId());
 
         List<FileEntity> descendants = new ArrayList<>();
         collectDescendants(folder.getId(), childrenByParentId, descendants);
@@ -292,6 +351,12 @@ public class FileService {
             acc.add(child);
             collectDescendants(child.getId(), childrenByParentId, acc);
         }
+    }
+
+    private Map<Long, List<FileEntity>> childrenByParentId(Long workspaceId) {
+        return fileRepository.findByWorkspaceId(workspaceId).stream()
+                .filter(f -> f.getParentId() != null)
+                .collect(Collectors.groupingBy(FileEntity::getParentId));
     }
 
     private FileNode toResponseNode(FileEntity entity) {

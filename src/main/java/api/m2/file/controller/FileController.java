@@ -3,6 +3,7 @@ package api.m2.file.controller;
 import api.m2.file.record.CreateFolderRequest;
 import api.m2.file.record.DownloadableFile;
 import api.m2.file.record.FileNode;
+import api.m2.file.record.MoveNodeRequest;
 import api.m2.file.record.RenameNodeRequest;
 import api.m2.file.service.FileService;
 import java.util.UUID;
@@ -74,6 +75,11 @@ public class FileController {
     @PatchMapping("/{id}")
     public FileNode renameNode(@PathVariable Long id, @Valid @RequestBody RenameNodeRequest request) {
         return fileService.renameNode(id, request.name());
+    }
+
+    @PatchMapping("/{id}/move")
+    public FileNode moveNode(@PathVariable Long id, @RequestBody MoveNodeRequest request) {
+        return fileService.moveNode(id, request.parentId());
     }
 
     @DeleteMapping("/{id}")
