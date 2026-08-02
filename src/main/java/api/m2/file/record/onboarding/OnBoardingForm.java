@@ -7,4 +7,5 @@ import java.util.List;
 public record OnBoardingForm(
         List<MultipartFile> filesToAdd,
         Long existingDefaultWorkspaceId,
-        List<String> workspacesToAdd) {}
+        List<String> workspacesToAdd) {
+}
