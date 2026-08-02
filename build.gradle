@@ -84,6 +84,14 @@ hibernate {
 	}
 }
 
+graalvmNative {
+	binaries {
+		main {
+			imageName = 'application'
+		}
+	}
+}
+
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
 	options.compilerArgs += [
