@@ -33,7 +33,7 @@ public class JwtAuthenticationConverter implements Converter<@NonNull Jwt, @NonN
 
     private static final String REALM_ACCESS_CLAIM = "realm_access";
     private static final String ROLES_CLAIM = "roles";
-    private static final String ROLE_PREFIX = "APP_";
+    private static final String ROLE_PREFIX = "ROLE_";
 
     @Override
     public AbstractAuthenticationToken convert(@NonNull Jwt jwt) {
