@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 public class FileService {
 
     private static final String ROOT_PATH = "Home";
+    private static final long MAX_UPLOAD_SIZE_BYTES = 50L * 1024 * 1024;
 
     private final FileRepository fileRepository;
     private final AppFileShareRepository appFileShareRepository;
@@ -128,6 +129,8 @@ public class FileService {
     }
 
     public FileNode uploadFile(Long workspaceId, Long parentId, MultipartFile file) {
+        validateUploadableFile(file);
+
         var owner = userService.getMe();
         workspaceService.verifyUserIsMemberOfWorkspace(workspaceId, owner.id());
 
@@ -165,6 +168,17 @@ public class FileService {
         fileRepository.save(entity);
 
         return toResponseNode(entity);
+    }
+
+    private void validateUploadableFile(MultipartFile file) {
+        if (file.getSize() > MAX_UPLOAD_SIZE_BYTES) {
+            throw new BusinessException("El archivo supera el tamaño máximo permitido de 50MB");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType != null && (contentType.startsWith("image/") || contentType.startsWith("video/"))) {
+            throw new BusinessException("No se permite subir imágenes ni videos");
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)
