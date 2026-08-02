@@ -12,6 +12,7 @@ public record FileNode(
         FileType type,
         Long size,
         LocalDateTime lastModified,
-        List<FileNode> children
+        List<FileNode> children,
+        List<String> shareWith
 ) {
 }

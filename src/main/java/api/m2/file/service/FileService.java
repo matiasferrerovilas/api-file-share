@@ -2,6 +2,7 @@ package api.m2.file.service;
 
 import api.m2.file.clients.identity.response.UserMe;
 import api.m2.file.configuration.properties.StorageProperties;
+import api.m2.file.entity.AppFileShare;
 import api.m2.file.entity.FileEntity;
 import api.m2.file.enums.FileType;
 import api.m2.file.exceptions.BusinessException;
@@ -11,6 +12,7 @@ import api.m2.file.exceptions.ServiceException;
 import api.m2.file.mappers.FileNodeMapper;
 import api.m2.file.record.DownloadableFile;
 import api.m2.file.record.FileNode;
+import api.m2.file.repository.AppFileShareRepository;
 import api.m2.file.repository.FileRepository;
 import api.m2.file.service.workspace.WorkspaceService;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +42,7 @@ public class FileService {
     private static final String ROOT_PATH = "Home";
 
     private final FileRepository fileRepository;
+    private final AppFileShareRepository appFileShareRepository;
     private final StorageProperties storageProperties;
     private final FileNodeMapper fileNodeMapper;
     private final UserService userService;
@@ -57,7 +60,12 @@ public class FileService {
                 .filter(file -> file.getParentId() != null)
                 .collect(Collectors.groupingBy(FileEntity::getParentId));
 
-        return fileNodeMapper.toFileNode(root, childrenByParentId);
+        var shareWithByFileId = appFileShareRepository.findByFileIdIn(files.stream().map(FileEntity::getId).toList())
+                .stream()
+                .collect(Collectors.groupingBy(AppFileShare::getFileId,
+                        Collectors.mapping(AppFileShare::getApiName, Collectors.toList())));
+
+        return fileNodeMapper.toFileNode(root, childrenByParentId, shareWithByFileId);
     }
 
     private FileEntity getOrCreateRoot(Long workspaceId, UserMe owner) {
