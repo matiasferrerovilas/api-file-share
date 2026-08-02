@@ -57,7 +57,7 @@ public class SecurityConfiguration {
     private CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(
-                "https://file.eva-core.com",
+                "https://keep.eva-core.com",
                 "http://localhost:5173",
                 "http://localhost:8081"
         ));
