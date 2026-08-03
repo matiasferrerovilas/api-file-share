@@ -16,13 +16,13 @@ import api.m2.file.repository.AppFileShareRepository;
 import api.m2.file.repository.FileRepository;
 import api.m2.file.service.workspace.WorkspaceService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Service
 @RequiredArgsConstructor
@@ -93,30 +95,54 @@ public class FileService {
 
         workspaceService.verifyUserIsMemberOfWorkspace(file.getWorkspaceId(), userService.getMe().id());
 
-        if (file.getType() != FileType.FILE) {
-            throw new BusinessException("No se puede descargar una carpeta");
-        }
-
         Path location = validateWithinBasePath(Path.of(file.getLocation()));
+
+        if (file.getType() == FileType.FOLDER) {
+            return downloadFolder(file, location);
+        }
 
         if (!Files.isRegularFile(location)) {
             throw new EntityNotFoundException("El archivo no existe en el disco: " + location);
         }
 
-        Resource resource;
-        try {
-            resource = new UrlResource(location.toUri());
-        } catch (IOException e) {
-            throw new UncheckedIOException("No se pudo leer el archivo: " + location, e);
-        }
-
-        String contentType = resolveContentType(location);
+        StreamingResponseBody body = out -> Files.copy(location, out);
 
         return DownloadableFile.builder()
-                .resource(resource)
+                .body(body)
                 .filename(file.getName())
-                .contentType(contentType)
+                .contentType(resolveContentType(location))
                 .build();
+    }
+
+    private DownloadableFile downloadFolder(FileEntity folder, Path location) {
+        if (!Files.isDirectory(location)) {
+            throw new EntityNotFoundException("La carpeta no existe en el disco: " + location);
+        }
+
+        StreamingResponseBody body = out -> zipDirectory(location, out);
+
+        return DownloadableFile.builder()
+                .body(body)
+                .filename(folder.getName() + ".zip")
+                .contentType("application/zip")
+                .build();
+    }
+
+    private void zipDirectory(Path sourceDir, OutputStream out) throws IOException {
+        try (ZipOutputStream zos = new ZipOutputStream(out);
+             var stream = Files.walk(sourceDir)) {
+            for (Path path : stream.filter(p -> !p.equals(sourceDir)).sorted().toList()) {
+                String entryName = sourceDir.relativize(path).toString().replace('\\', '/');
+                if (Files.isDirectory(path)) {
+                    zos.putNextEntry(new ZipEntry(entryName + "/"));
+                    zos.closeEntry();
+                } else {
+                    zos.putNextEntry(new ZipEntry(entryName));
+                    Files.copy(path, zos);
+                    zos.closeEntry();
+                }
+            }
+        }
     }
 
     private String resolveContentType(Path location) {

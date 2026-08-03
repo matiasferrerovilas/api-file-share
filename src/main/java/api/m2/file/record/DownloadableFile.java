@@ -1,11 +1,11 @@
 package api.m2.file.record;
 
 import lombok.Builder;
-import org.springframework.core.io.Resource;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @Builder
 public record DownloadableFile(
-        Resource resource,
+        StreamingResponseBody body,
         String filename,
         String contentType
 ) {
