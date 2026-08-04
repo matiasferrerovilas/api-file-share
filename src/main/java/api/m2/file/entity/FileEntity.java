@@ -48,6 +48,12 @@ public class FileEntity {
 
     private Long size;
 
+    @Column(name = "content_type")
+    private String contentType;
+
+    @Column(name = "checksum")
+    private String checksum;
+
     @Column(name = "location")
     private String location;
 

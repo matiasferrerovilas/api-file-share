@@ -2,7 +2,7 @@ package api.m2.file.controller;
 
 import api.m2.file.record.CreateFolderRequest;
 import api.m2.file.record.DownloadableFile;
-import api.m2.file.record.FileNode;
+import api.m2.file.record.FileDTO;
 import api.m2.file.record.MoveNodeRequest;
 import api.m2.file.record.RenameNodeRequest;
 import api.m2.file.service.FileService;
@@ -37,7 +37,7 @@ public class FileController {
 
     @GetMapping("/tree")
     @ApiResponse(responseCode = "200", description = "Listado retornado correctamente")
-    public FileNode listFiles(@RequestParam Long workspaceId) {
+    public FileDTO listFiles(@RequestParam Long workspaceId) {
         return fileService.getPersonalFolder(workspaceId);
     }
 
@@ -57,7 +57,7 @@ public class FileController {
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    public FileNode uploadFile(
+    public FileDTO uploadFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam Long workspaceId,
             @RequestParam(value = "parentId", required = false) Long parentId) {
@@ -66,17 +66,17 @@ public class FileController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public FileNode createFolder(@Valid @RequestBody CreateFolderRequest request) {
+    public FileDTO createFolder(@Valid @RequestBody CreateFolderRequest request) {
         return fileService.createFolder(request.workspaceId(), request.parentId(), request.name());
     }
 
     @PatchMapping("/{id}")
-    public FileNode renameNode(@PathVariable Long id, @Valid @RequestBody RenameNodeRequest request) {
+    public FileDTO renameNode(@PathVariable Long id, @Valid @RequestBody RenameNodeRequest request) {
         return fileService.renameNode(id, request.name());
     }
 
     @PatchMapping("/{id}/move")
-    public FileNode moveNode(@PathVariable Long id, @RequestBody MoveNodeRequest request) {
+    public FileDTO moveNode(@PathVariable Long id, @RequestBody MoveNodeRequest request) {
         return fileService.moveNode(id, request.parentId());
     }
 

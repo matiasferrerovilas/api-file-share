@@ -9,9 +9,9 @@ import api.m2.file.exceptions.BusinessException;
 import api.m2.file.exceptions.EntityNotFoundException;
 import api.m2.file.exceptions.PermissionDeniedException;
 import api.m2.file.exceptions.ServiceException;
-import api.m2.file.mappers.FileNodeMapper;
+import api.m2.file.mappers.FileDTOMapper;
 import api.m2.file.record.DownloadableFile;
-import api.m2.file.record.FileNode;
+import api.m2.file.record.FileDTO;
 import api.m2.file.repository.AppFileShareRepository;
 import api.m2.file.repository.FileRepository;
 import api.m2.file.service.workspace.WorkspaceService;
@@ -27,9 +27,13 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,15 +47,16 @@ public class FileService {
 
     private static final String ROOT_PATH = "Home";
     private static final long MAX_UPLOAD_SIZE_BYTES = 50L * 1024 * 1024;
+    private static final String CHECKSUM_ALGORITHM = "SHA-256";
 
     private final FileRepository fileRepository;
     private final AppFileShareRepository appFileShareRepository;
     private final StorageProperties storageProperties;
-    private final FileNodeMapper fileNodeMapper;
+    private final FileDTOMapper fileDTOMapper;
     private final UserService userService;
     private final WorkspaceService workspaceService;
 
-    public FileNode getPersonalFolder(Long workspaceId) {
+    public FileDTO getPersonalFolder(Long workspaceId) {
         var owner = userService.getMe();
         workspaceService.verifyUserIsMemberOfWorkspace(workspaceId, owner.id());
 
@@ -68,7 +73,7 @@ public class FileService {
                 .collect(Collectors.groupingBy(AppFileShare::getFileId,
                         Collectors.mapping(AppFileShare::getApiName, Collectors.toList())));
 
-        return fileNodeMapper.toFileNode(root, childrenByParentId, shareWithByFileId);
+        return fileDTOMapper.toFileDTO(root, childrenByParentId, shareWithByFileId);
     }
 
     private FileEntity getOrCreateRoot(Long workspaceId, UserMe owner) {
@@ -107,10 +112,12 @@ public class FileService {
 
         StreamingResponseBody body = out -> Files.copy(location, out);
 
+        String contentType = file.getContentType() != null ? file.getContentType() : resolveContentType(location);
+
         return DownloadableFile.builder()
                 .body(body)
                 .filename(file.getName())
-                .contentType(resolveContentType(location))
+                .contentType(contentType)
                 .build();
     }
 
@@ -154,7 +161,15 @@ public class FileService {
         }
     }
 
-    public FileNode uploadFile(Long workspaceId, Long parentId, MultipartFile file) {
+    private static MessageDigest newChecksumDigest() {
+        try {
+            return MessageDigest.getInstance(CHECKSUM_ALGORITHM);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Algoritmo de checksum no disponible: " + CHECKSUM_ALGORITHM, e);
+        }
+    }
+
+    public FileDTO uploadFile(Long workspaceId, Long parentId, MultipartFile file) {
         validateUploadableFile(file);
 
         var owner = userService.getMe();
@@ -170,14 +185,17 @@ public class FileService {
             throw new BusinessException("Ya existe un archivo con el nombre '" + filename + "' en ese destino");
         }
 
+        MessageDigest digest = newChecksumDigest();
         try {
             Files.createDirectories(target.getParent());
-            try (var input = file.getInputStream()) {
+            try (var input = new DigestInputStream(file.getInputStream(), digest)) {
                 Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException e) {
             throw new UncheckedIOException("No se pudo guardar el archivo: " + target, e);
         }
+        String checksum = HexFormat.of().formatHex(digest.digest());
+        String contentType = file.getContentType() != null ? file.getContentType() : resolveContentType(target);
 
         LocalDateTime now = LocalDateTime.now();
         FileEntity entity = FileEntity.builder()
@@ -187,6 +205,8 @@ public class FileService {
                 .name(filename)
                 .type(FileType.FILE)
                 .size(file.getSize())
+                .contentType(contentType)
+                .checksum(checksum)
                 .location(target.toString())
                 .createdAt(now)
                 .updatedAt(now)
@@ -208,7 +228,7 @@ public class FileService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public FileNode createFolder(Long workspaceId, Long parentId, String name) {
+    public FileDTO createFolder(Long workspaceId, Long parentId, String name) {
         var owner = userService.getMe();
         workspaceService.verifyUserIsMemberOfWorkspace(workspaceId, owner.id());
 
@@ -243,7 +263,7 @@ public class FileService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public FileNode renameNode(Long id, String name) {
+    public FileDTO renameNode(Long id, String name) {
         FileEntity entity = fileRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("No se encontró el archivo con id " + id));
 
@@ -319,7 +339,7 @@ public class FileService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public FileNode moveNode(Long id, Long newParentId) {
+    public FileDTO moveNode(Long id, Long newParentId) {
         var owner = userService.getMe();
         FileEntity entity = fileRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("No se encontró el archivo con id " + id));
@@ -407,13 +427,18 @@ public class FileService {
                 .collect(Collectors.groupingBy(FileEntity::getParentId));
     }
 
-    private FileNode toResponseNode(FileEntity entity) {
-        return FileNode.builder()
+    private FileDTO toResponseNode(FileEntity entity) {
+        return FileDTO.builder()
                 .id(entity.getId().toString())
                 .name(entity.getName())
-                .type(entity.getType())
-                .size(entity.getSize())
-                .lastModified(entity.getUpdatedAt())
+                .metadata(FileDTO.Metadata.builder()
+                        .type(entity.getType())
+                        .size(entity.getSize())
+                        .lastModified(entity.getUpdatedAt())
+                        .createdAt(entity.getCreatedAt())
+                        .contentType(entity.getContentType())
+                        .checksum(entity.getChecksum())
+                        .build())
                 .build();
     }
 
