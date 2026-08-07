@@ -5,7 +5,7 @@ on:
     branches: ["main", "develop"]
 
 env:
-  IMAGE_NAME: "mferrerovilas/api-file-share"
+  IMAGE_NAME: "mferrerovilas/api-keep"
 
 jobs:
 

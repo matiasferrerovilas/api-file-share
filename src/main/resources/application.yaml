@@ -19,7 +19,7 @@ spring:
     virtual:
       enabled: true
   application:
-    name: api-file-share
+    name: api-keep
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:

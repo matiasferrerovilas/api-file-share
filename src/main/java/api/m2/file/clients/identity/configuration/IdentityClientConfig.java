@@ -27,7 +27,7 @@ import java.io.IOException;
 public class IdentityClientConfig {
 
     private static final String SOURCE_SERVICE_HEADER = "X-Source-Service";
-    private static final String SOURCE_SERVICE_NAME = "api-file-share";
+    private static final String SOURCE_SERVICE_NAME = "api-keep";
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String UNKNOWN_ERROR_DETAIL = "Error desconocido al comunicarse con api-identity";
     private static final int HTTP_BAD_REQUEST = 400;

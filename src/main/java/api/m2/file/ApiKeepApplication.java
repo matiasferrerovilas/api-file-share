@@ -11,10 +11,10 @@ import org.springframework.cache.annotation.EnableCaching;
 @EnableCaching
 @EnableConfigurationProperties({JwtProperties.class, StorageProperties.class})
 
-public class ApiFileShareApplication {
+public class ApiKeepApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(ApiFileShareApplication.class, args);
+        SpringApplication.run(ApiKeepApplication.class, args);
     }
 
 }

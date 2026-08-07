@@ -12,8 +12,8 @@ spring:
   rabbitmq:
     host: localhost
     port: 5672
-    username: api-file-share
-    password: api-file-share
+    username: api-keep
+    password: api-keep
   data:
     redis:
       host: localhost
