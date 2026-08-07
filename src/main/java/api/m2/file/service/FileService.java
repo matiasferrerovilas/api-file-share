@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -178,7 +179,8 @@ public class FileService {
         FileEntity parent = resolveParent(workspaceId, parentId, owner);
         Path targetDirectory = Path.of(parent.getLocation());
 
-        String filename = Path.of(Objects.requireNonNull(file.getOriginalFilename())).getFileName().toString();
+        String originalFilename = Path.of(Objects.requireNonNull(file.getOriginalFilename())).getFileName().toString();
+        String filename = capitalize(originalFilename);
         Path target = validateWithinBasePath(targetDirectory.resolve(filename));
 
         if (Files.exists(target)) {
@@ -214,6 +216,14 @@ public class FileService {
         fileRepository.save(entity);
 
         return toResponseNode(entity);
+    }
+
+    private static String capitalize(String filename) {
+        if (filename.isEmpty()) {
+            return filename;
+        }
+        String lower = filename.toLowerCase(Locale.ROOT);
+        return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
     }
 
     private void validateUploadableFile(MultipartFile file) {
